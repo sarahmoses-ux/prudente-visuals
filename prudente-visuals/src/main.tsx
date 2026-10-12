@@ -1,0 +1,10 @@
+import React,{Suspense,lazy} from 'react';
+import ReactDOM from 'react-dom/client';
+import {BrowserRouter,Routes,Route} from 'react-router-dom';
+import {MotionConfig} from 'framer-motion';
+import Layout from './layouts/Layout';
+import Home from './pages/Home';
+import {Button} from './components/UI';
+import './styles/global.css';
+const About=lazy(()=>import('./pages/About'));const Services=lazy(()=>import('./pages/Services'));const Process=lazy(()=>import('./pages/Process'));const Contact=lazy(()=>import('./pages/Contact'));const Portfolio=lazy(()=>import('./pages/Portfolio').then(m=>({default:m.Portfolio})));const Project=lazy(()=>import('./pages/Portfolio').then(m=>({default:m.ProjectDetail})));
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><MotionConfig reducedMotion="user"><BrowserRouter><Suspense fallback={<div className="loading" role="status"><span>PV</span><p>Bringing the vision into focus…</p></div>}><Routes><Route element={<Layout/>}><Route index element={<Home/>}/><Route path="about" element={<About/>}/><Route path="services" element={<Services/>}/><Route path="portfolio" element={<Portfolio/>}/><Route path="portfolio/:slug" element={<Project/>}/><Route path="process" element={<Process/>}/><Route path="contact" element={<Contact/>}/><Route path="*" element={<section className="page-header wrap"><h1>A different direction.</h1><p>This page could not be found.</p><Button to="/">Back to home</Button></section>}/></Route></Routes></Suspense></BrowserRouter></MotionConfig></React.StrictMode>);

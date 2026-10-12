@@ -1,0 +1,31 @@
+import {spawn} from 'node:child_process';
+import {writeFileSync,mkdirSync} from 'node:fs';
+import path from 'node:path';
+const origin='http://127.0.0.1:5173';
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+mkdirSync('qa',{recursive:true});
+const browser=spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',['--headless=new','--disable-gpu','--no-first-run','--remote-debugging-port=9333',`--user-data-dir=${path.resolve('.browser-qa')}`],{stdio:'ignore',windowsHide:true});
+let socket;let id=0;const pending=new Map();const errors=[];
+try{
+ let target;for(let i=0;i<80;i++){try{const r=await fetch('http://127.0.0.1:9333/json/new?about:blank',{method:'PUT'});target=await r.json();break}catch{await delay(250)}}
+ if(!target)throw Error('Browser debugging endpoint unavailable');
+ socket=new WebSocket(target.webSocketDebuggerUrl);await new Promise((resolve,reject)=>{socket.addEventListener('open',resolve,{once:true});socket.addEventListener('error',reject,{once:true})});
+ socket.addEventListener('message',e=>{const r=JSON.parse(e.data);if(r.id){const cb=pending.get(r.id);if(!cb)return;pending.delete(r.id);r.error?cb.reject(Error(r.error.message)):cb.resolve(r.result)}if(r.method==='Runtime.exceptionThrown')errors.push(r.params.exceptionDetails.text)});
+ const send=(method,params={})=>new Promise((resolve,reject)=>{const next=++id;pending.set(next,{resolve,reject});socket.send(JSON.stringify({id:next,method,params}))});
+ const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value};
+ const navigate=async route=>{await send('Page.navigate',{url:origin+route});await delay(1000);const selector=route==='/portfolio'?'.filters':route.startsWith('/contact')?'form':'h1';for(let i=0;i<80;i++){if(await evaluate(`!!document.querySelector('${selector}') && !document.querySelector('.loading')`))break;await delay(250)}await evaluate('Promise.race([document.fonts.ready.then(()=>true),new Promise(r=>setTimeout(()=>r(false),4000))])')};
+ const check=(condition,label)=>{if(!condition)throw Error(label);console.log('PASS '+label)};
+ await send('Runtime.enable');await send('Page.enable');await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+ for(const route of ['/','/about','/services','/portfolio','/process','/contact','/portfolio/form-and-feeling','/missing']){await navigate(route);check(await evaluate("document.querySelector('h1')?.textContent.length>0"),route+' renders');check(await evaluate('document.documentElement.scrollWidth<=innerWidth'),route+' desktop has no overflow')}
+ await navigate('/');await delay(2500);let shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync('qa/home-desktop.png',Buffer.from(shot.data,'base64'));console.log('IMAGE STATUS '+JSON.stringify(await evaluate("[...document.images].filter(i=>i.loading!=='lazy').map(i=>({src:i.currentSrc,loaded:i.complete&&i.naturalWidth>0}))")));
+ await navigate('/services');check(await evaluate("document.querySelectorAll('.accordion-content li').length===52"),'52 document services');await evaluate("document.querySelectorAll('details')[1].open=true");check(await evaluate("document.querySelectorAll('details')[1].open"),'Service accordion expands');
+ await navigate('/portfolio');await evaluate("[...document.querySelectorAll('.filters button')].find(b=>b.textContent==='Film').click()");await delay(200);check(await evaluate("document.querySelectorAll('.project').length===1 && document.querySelector('.project-meta p').textContent.includes('Film')"),'Film category filter');await evaluate("document.querySelector('[aria-label=\"List view\"]').click()");await delay(100);check(await evaluate("!!document.querySelector('.list-view')"),'Portfolio list toggle');
+ await navigate('/contact?service=Branding');check(await evaluate("document.querySelector('form [name=service]').value==='Branding'"),'Service CTA preselects form');check(await evaluate("!document.querySelector('form').checkValidity()"),'Empty inquiry fails validation');await evaluate(`(()=>{for(const [key,value] of Object.entries({name:'QA visitor',email:'qa@example.com',company:'Demonstration',timeline:'Within 1 month',description:'This is a local browser check of the inquiry form.'})){const field=document.querySelector('form [name='+key+']');const setter=Object.getOwnPropertyDescriptor(field.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:field.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set;setter.call(field,value);field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}));}})()`);await delay(100);await evaluate("document.querySelector('form').requestSubmit()");await delay(300);check(await evaluate("document.querySelector('[role=status]')?.textContent.includes('has not been sent')"),'Unconnected inquiry truthfully reports no delivery');
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ for(const route of ['/','/about','/services','/portfolio','/process','/contact','/portfolio/form-and-feeling']){await navigate(route);check(await evaluate('document.documentElement.scrollWidth<=innerWidth'),route+' mobile has no overflow')}
+ await navigate('/');shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync('qa/home-mobile.png',Buffer.from(shot.data,'base64'));await evaluate("document.querySelector('.menu-toggle').click()");await delay(100);check(await evaluate("document.querySelector('.menu-toggle').getAttribute('aria-expanded')==='true'"),'Mobile menu opens');await evaluate("[...document.querySelectorAll('.mobile-menu a')].find(a=>a.textContent.includes('Services')).click()");await delay(500);check(await evaluate("location.pathname==='/services' && !document.querySelector('.mobile-menu')"),'Mobile menu navigates and closes');
+ check(errors.length===0,'No browser runtime exceptions');
+ console.log('Browser QA complete.');
+ socket.send(JSON.stringify({id:++id,method:'Browser.close'}));
+ await delay(100);
+}finally{socket?.close();browser.kill()}

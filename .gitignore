@@ -1,0 +1,6 @@
+.git-backups/
+*.tar.gz
+*-audit.png
+*-rendered.png
+services-fixed.png
+asepsis-reference.png

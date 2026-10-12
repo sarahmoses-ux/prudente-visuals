@@ -1,0 +1,2 @@
+import {useEffect} from 'react';
+export function usePageMeta(title:string,description:string){useEffect(()=>{document.title=`${title} — Prudente Visuals`;for(const selector of ['meta[name="description"]','meta[property="og:description"]']) document.querySelector(selector)?.setAttribute('content',description);document.querySelector('meta[property="og:title"]')?.setAttribute('content',document.title);},[title,description]);}

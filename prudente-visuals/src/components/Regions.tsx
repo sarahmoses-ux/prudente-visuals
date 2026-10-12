@@ -1,0 +1,5 @@
+import {useState} from 'react';
+import {ArrowUpRight,Globe2} from 'lucide-react';
+import {regions} from '../data/content';
+import {Eyebrow,Reveal} from './UI';
+export default function Regions(){const [active,setActive]=useState(0);return <section className="regions wrap"><Eyebrow>LOCAL ROOTS. GLOBAL PERSPECTIVE.</Eyebrow><Reveal><div className="section-heading"><h2>Creativity has<br/>no <em>borders.</em></h2><p>Based in possibility. Connected across Nigeria, North America, and everywhere in between.</p></div><div className="region-grid">{regions.map((region,i)=><button key={region.name} aria-expanded={i===active} className={`region ${active===i?'active':''}`} onClick={()=>setActive(i)}><div><Globe2 size={18}/><span>0{i+1}</span></div><h3>{region.name}<ArrowUpRight size={22}/></h3><p>{active===i?region.text:'Explore our creative services in this region.'}</p></button>)}</div><p className="fine-print">Service regions represent collaboration reach, not physical office locations.</p></Reveal></section>}

@@ -1,0 +1,4 @@
+import {steps} from '../data/content';
+import {CTA,PageHeader,Reveal} from '../components/UI';
+import {usePageMeta} from '../hooks/usePageMeta';
+export default function Process(){usePageMeta('Our process','Discover, Design, Deliver, Develop. A considered creative process from first conversation to long-term growth.');return <><PageHeader label="HOW WE WORK" title="From the first spark." italic="To what comes next." text="A clear process gives bold ideas room to grow. Four stages, one connected partnership."/><section className="timeline wrap">{steps.map((s,i)=><Reveal key={s.title}><article className="timeline-step"><div className="timeline-number">0{i+1}<span/></div><div><span className="eyebrow">STAGE 0{i+1}</span><h2>{s.title}<em>.</em></h2><p>{s.text}</p><div className="deliverables">{s.detail.split(' · ').map(d=><span key={d}>{d}</span>)}</div></div></article></Reveal>)}</section><CTA/></>}
